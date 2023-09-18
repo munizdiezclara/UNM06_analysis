@@ -419,3 +419,4 @@ bay_t.test_c_mem_cert_test <-  ttestBF(pred_c_mem_cert_test, nonpred_c_mem_cert_
 print(bay_t.test_c_mem_cert_test)
 ```
 There are no significant differences in memory due to predictiveness  and the bayesian analysis indicates anecdotal evidence for the null hypothesis (`r apa(t.test_c_mem_cert_test)`, `r report_BF_and_error(bay_t.test_c_mem_cert_test[1])`).
+

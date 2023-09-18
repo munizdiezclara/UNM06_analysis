@@ -1,0 +1,248 @@
+---
+title: "UNM06_correlational"
+output: pdf_document
+date: "2023-09-18"
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(afex)
+library(BayesFactor)
+library(apa)
+library(emmeans)
+library("writexl")
+load("C:/Users/munizdie/OneDrive - Lancaster University/Experiments/Recognition Memory/UNM06/UNM06_analysis/UNM06_proc_data.RData")
+# function to force scientific formatting of numbers (used for large BFs)
+changeSciNot <- function(n) {
+  output <- format(n, scientific = TRUE, digits = 2) #Transforms the number into scientific notation even if small
+  output <- sub("e", "x10^", output) #Replace e with 10^
+  output <- sub("\\+0?", "", output) #Remove + symbol and leading zeros on exponent, if > 1
+  output <- sub("-0?", "-", output) #Leaves - symbol but removes leading zeros on exponent, if < 1
+  output <- paste0(output,"^")
+  # output = strsplit(output, "^", fixed = TRUE)
+  # output = paste0(output[[1]][1],"^", output[[1]][2], "^")
+  output
+}
+
+# function to extract and report BFs with error %s
+report_BF_and_error <- function(BF_in, sci_not = TRUE, hyp = "alt"){
+  
+  if (hyp == "alt") {
+    BF_notation = "BF~10~ = "
+  } else if (hyp == "null") {
+    BF_notation = "BF~01~ = "
+  }
+  
+  if (sci_not == TRUE) {
+    BF_value = changeSciNot(extractBF(BF_in)$bf) # change to sci notation
+  } else {
+    BF_value = round(extractBF(BF_in)$bf,2) # otherwise round
+  }
+  
+  paste0(BF_notation, 
+         BF_value, 
+         " &plusmn; ", 
+         round(100*extractBF(BF_in)$error,2), 
+         "%")
+}
+training <- training %>%
+  mutate(prob_response = case_when((cue1 == 1 | cue1 == 3) & cue_o_mouse.clicked_name == "o1_image" ~ 1,
+                                   (cue1 == 1 | cue1 == 3) & cue_o_mouse.clicked_name == "o2_image" ~ 0, 
+                                   (cue1 == 2 | cue1 == 4) & cue_o_mouse.clicked_name == "o1_image" ~ 0,
+                                   (cue1 == 2 | cue1 == 4) & cue_o_mouse.clicked_name == "o2_image" ~ 1))
+```
+
+## Accuracy
+This analysis aims to see the relationship between the accuracy at training and test. 
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+training_acc <- filter(training, block == 4) %>%
+  group_by(pNum) %>%
+  summarise(acc = mean(prob_response, na.rm = TRUE))
+test_acc <- test %>%
+  group_by(pNum) %>%
+  summarise(test_acc = mean(acc, na.rm = TRUE))
+part_correlation_acc <- merge(training_acc, test_acc)
+ggplot()+
+  geom_point(part_correlation_acc, mapping = aes(x = acc, y = test_acc))
+```
+```{r, include = FALSE}
+gen_cor <- cor.test(part_correlation_acc$acc, part_correlation_acc$test_acc)
+print(gen_cor)
+gen_bay_cor <- correlationBF(part_correlation_acc$acc, part_correlation_acc$test_acc)
+print(gen_bay_cor)
+```
+
+In general terms, there is no correlation between accuracy in training and test (`r apa(gen_cor)`, `r report_BF_and_error(gen_bay_cor[1])`).
+
+Let's now see if this is the same for certain and uncertain group
+```{r}
+cert_training <- filter(training, condition == "Certain")
+uncert_training <- filter(training, condition == "Uncertain")
+cert_test <- filter(test, condition == "Certain")
+uncert_test <- filter(test, condition == "Uncertain")
+```
+
+### Certain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+cert_training_acc <- filter(cert_training, block == 4) %>%
+  group_by(pNum) %>%
+  summarise(acc = mean(prob_response, na.rm = TRUE))
+cert_test_acc <- cert_test %>%
+  group_by(pNum) %>%
+  summarise(test_acc = mean(acc, na.rm = TRUE))
+cert_part_correlation_acc <- merge(cert_training_acc, cert_test_acc)
+ggplot()+
+  geom_point(cert_part_correlation_acc, mapping = aes(x = acc, y = test_acc))
+```
+```{r, include = FALSE}
+cert_gen_cor <- cor.test(cert_part_correlation_acc$acc, cert_part_correlation_acc$test_acc)
+print(cert_gen_cor)
+cert_gen_bay_cor <- correlationBF(cert_part_correlation_acc$acc, cert_part_correlation_acc$test_acc)
+print(cert_gen_bay_cor)
+```
+
+For the certain condition, there is no correlation between accuracy in training and test (`r apa(cert_gen_cor)`, `r report_BF_and_error(cert_gen_bay_cor[1])`).
+
+### Uncertain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+uncert_training_acc <- filter(uncert_training, block == 4) %>%
+  group_by(pNum) %>%
+  summarise(acc = mean(prob_response, na.rm = TRUE))
+uncert_test_acc <- uncert_test %>%
+  group_by(pNum) %>%
+  summarise(test_acc = mean(acc, na.rm = TRUE))
+uncert_part_correlation_acc <- merge(uncert_training_acc, uncert_test_acc)
+ggplot()+
+  geom_point(uncert_part_correlation_acc, mapping = aes(x = acc, y = test_acc))
+```
+```{r, include = FALSE}
+uncert_gen_cor <- cor.test(uncert_part_correlation_acc$acc, uncert_part_correlation_acc$test_acc)
+print(uncert_gen_cor)
+uncert_gen_bay_cor <- correlationBF(uncert_part_correlation_acc$acc, uncert_part_correlation_acc$test_acc)
+print(uncert_gen_bay_cor)
+```
+
+For the uncertain condition, there is no correlation between accuracy in training and test (`r apa(uncert_gen_cor)`, `r report_BF_and_error(uncert_gen_bay_cor[1])`).
+
+## Memory score
+This analysis aims to see the relationship between the accuracy at training and memory score at test. 
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+test_mem <- test %>%
+  group_by(pNum) %>%
+  summarise(test_mem = mean(mem_score, na.rm = TRUE))
+part_correlation_mem <- merge(training_acc, test_mem)
+ggplot()+
+  geom_point(part_correlation_mem, mapping = aes(x = acc, y = test_mem))
+```
+```{r, include = FALSE}
+gen_mem_cor <- cor.test(part_correlation_mem$acc, part_correlation_mem$test_mem)
+print(gen_mem_cor)
+gen_mem_bay_cor <- correlationBF(part_correlation_mem$acc, part_correlation_mem$test_mem)
+print(gen_mem_bay_cor)
+```
+
+In general terms, there is no correlation between accuracy in training and memory score in test (`r apa(gen_mem_cor)`, `r report_BF_and_error(gen_mem_bay_cor[1])`).
+
+Let's now see if this is the same for certain and uncertain group
+
+### Certain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+cert_test_mem <- cert_test %>%
+  group_by(pNum) %>%
+  summarise(test_mem = mean(mem_score, na.rm = TRUE))
+cert_part_correlation_mem <- merge(cert_training_acc, cert_test_mem)
+ggplot()+
+  geom_point(cert_part_correlation_mem, mapping = aes(x = acc, y = test_mem))
+```
+```{r, include = FALSE}
+cert_mem_gen_cor <- cor.test(cert_part_correlation_mem$acc, cert_part_correlation_mem$test_mem)
+print(cert_mem_gen_cor)
+cert_mem_gen_bay_cor <- correlationBF(cert_part_correlation_mem$acc, cert_part_correlation_mem$test_mem)
+print(cert_mem_gen_bay_cor)
+```
+
+For the certain condition, there is no correlation between accuracy in training and memory score at test (`r apa(cert_mem_gen_cor)`, `r report_BF_and_error(cert_mem_gen_bay_cor[1])`).
+
+### Uncertain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+uncert_test_mem <- uncert_test %>%
+  group_by(pNum) %>%
+  summarise(test_mem = mean(mem_score, na.rm = TRUE))
+uncert_part_correlation_mem <- merge(uncert_training_acc, uncert_test_mem)
+ggplot()+
+  geom_point(uncert_part_correlation_mem, mapping = aes(x = acc, y = test_mem))
+```
+```{r, include = FALSE}
+uncert_gen_mem_cor <- cor.test(uncert_part_correlation_mem$acc, uncert_part_correlation_mem$test_mem)
+print(uncert_gen_mem_cor)
+uncert_gen_mem_bay_cor <- correlationBF(uncert_part_correlation_mem$acc, uncert_part_correlation_mem$test_mem)
+print(uncert_gen_mem_bay_cor)
+```
+
+For the uncertain condition, there is no correlation between accuracy in training and memory score at test (`r apa(uncert_gen_mem_cor)`, `r report_BF_and_error(uncert_gen_mem_bay_cor[1])`).
+
+## Corrected memory score (just hits)
+This analysis aims to see the relationship between the accuracy at training and memory score at test. 
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+test_cms <- filter(test, acc == 1) %>%
+  group_by(pNum) %>%
+  summarise(test_cms = mean(mem_score, na.rm = TRUE))
+part_correlation_cms <- merge(training_acc, test_cms)
+ggplot()+
+  geom_point(part_correlation_cms, mapping = aes(x = acc, y = test_cms))
+```
+```{r, include = FALSE}
+gen_cms_cor <- cor.test(part_correlation_cms$acc, part_correlation_cms$test_cms)
+print(gen_cms_cor)
+gen_cms_bay_cor <- correlationBF(part_correlation_cms$acc, part_correlation_cms$test_cms)
+print(gen_cms_bay_cor)
+```
+
+In general terms, there is no correlation between accuracy in training and corrected memory score in test (`r apa(gen_cms_cor)`, `r report_BF_and_error(gen_cms_bay_cor[1])`).
+
+Let's now see if this is the same for certain and uncertain group
+
+### Certain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+cert_test_cms <- filter(cert_test, acc == 1) %>%
+  group_by(pNum) %>%
+  summarise(test_cms = mean(mem_score, na.rm = TRUE))
+cert_part_correlation_cms <- merge(cert_training_acc, cert_test_cms)
+ggplot()+
+  geom_point(cert_part_correlation_cms, mapping = aes(x = acc, y = test_cms))
+```
+```{r, include = FALSE}
+cert_cms_gen_cor <- cor.test(cert_part_correlation_cms$acc, cert_part_correlation_cms$test_cms)
+print(cert_cms_gen_cor)
+cert_cms_gen_bay_cor <- correlationBF(cert_part_correlation_cms$acc, cert_part_correlation_cms$test_cms)
+print(cert_cms_gen_bay_cor)
+```
+
+For the certain condition, there is no correlation between accuracy in training and corrected memory score at test (`r apa(cert_cms_gen_cor)`, `r report_BF_and_error(cert_cms_gen_bay_cor[1])`).
+
+### Uncertain
+```{r, echo = FALSE}
+#Create a measure of accuracy on training, lets just use the prob_response for the last block
+uncert_test_mem <- uncert_test %>%
+  group_by(pNum) %>%
+  summarise(test_mem = mean(mem_score, na.rm = TRUE))
+uncert_part_correlation_mem <- merge(uncert_training_acc, uncert_test_mem)
+ggplot()+
+  geom_point(uncert_part_correlation_mem, mapping = aes(x = acc, y = test_mem))
+```
+```{r, include = FALSE}
+uncert_gen_mem_cor <- cor.test(uncert_part_correlation_mem$acc, uncert_part_correlation_mem$test_mem)
+print(uncert_gen_mem_cor)
+uncert_gen_mem_bay_cor <- correlationBF(uncert_part_correlation_mem$acc, uncert_part_correlation_mem$test_mem)
+print(uncert_gen_mem_bay_cor)
+```
+
+For the uncertain condition, there is no correlation between accuracy in training and memory score at test (`r apa(uncert_gen_mem_cor)`, `r report_BF_and_error(uncert_gen_mem_bay_cor[1])`).
