@@ -12,7 +12,7 @@ library(BayesFactor)
 library(apa)
 library(emmeans)
 library("writexl")
-load("C:/Users/munizdie/OneDrive - Lancaster University/Experiments/UNM06_analysis/UNM06_proc_data.RData")
+load("C:/Users/munizdie/OneDrive - Lancaster University/Experiments/Recognition Memory/UNM06/UNM06_analysis/UNM06_proc_data.RData")
 # function to force scientific formatting of numbers (used for large BFs)
 changeSciNot <- function(n) {
   output <- format(n, scientific = TRUE, digits = 2) #Transforms the number into scientific notation even if small
@@ -108,12 +108,20 @@ In this experiment, the differences in recognition memory of predictive and non-
 # Results
 ## Training
 ```{r, include=FALSE}
+#Create probable response variable, as we are using the uncertain condition
+training <- training %>%
+  mutate(prob_response = case_when((cue1 == 1 | cue1 == 3) & cue_o_mouse.clicked_name == "o1_image" ~ 1,
+                                   (cue1 == 1 | cue1 == 3) & cue_o_mouse.clicked_name == "o2_image" ~ 0, 
+                                   (cue1 == 2 | cue1 == 4) & cue_o_mouse.clicked_name == "o1_image" ~ 0,
+                                   (cue1 == 2 | cue1 == 4) & cue_o_mouse.clicked_name == "o2_image" ~ 1))
+```
+```{r, include=FALSE}
 #Plot Training accuracy
 training$condition <- as.factor(training$condition)
-MA_training <- training[complete.cases(training$correct_answer), ] %>%
+MA_training <- training[complete.cases(training$prob_response), ] %>%
   group_by(block, condition) %>%
-  summarise(mean_accuracy = mean(correct_answer, na.rm = TRUE), 
-            sd_accuracy = sd(correct_answer, na.rm = TRUE)/sqrt(length(correct_answer)))
+  summarise(mean_accuracy = mean(prob_response, na.rm = TRUE), 
+            sd_accuracy = sd(prob_response, na.rm = TRUE)/sqrt(length(prob_response)))
 ```
 ```{r, echo=FALSE}
 ggplot(MA_training) +
@@ -128,7 +136,7 @@ ggplot(MA_training) +
 #some t test to check that responding is significantly higher than chance
 mean_training_certain <- filter(training, condition == "Certain") %>%
   group_by(pNum) %>%
-   summarise(mean_response = mean(correct_answer, na.rm = TRUE))
+   summarise(mean_response = mean(prob_response, na.rm = TRUE))
 t_mean_certain_training <- t.test(mean_training_certain, mu = .5, alternative = "greater") 
 print (t_mean_certain_training)
 bay_t_mean_certain_training <- ttestBF(mean_training_certain$mean_response, mu = .5)
@@ -138,7 +146,7 @@ print(bay_t_mean_certain_training)
 #some t test to check that responding is significantly higher than chance
 mean_training_uncertain <- filter(training, condition == "Uncertain") %>%
   group_by(pNum) %>%
-   summarise(mean_response = mean(correct_answer, na.rm = TRUE))
+   summarise(mean_response = mean(prob_response, na.rm = TRUE))
 t_mean_uncertain_training <- t.test(mean_training_uncertain, mu = .5, alternative = "greater") 
 print (t_mean_uncertain_training)
 bay_t_mean_uncertain_training <- ttestBF(mean_training_uncertain$mean_response, mu = .5)
@@ -151,7 +159,7 @@ One-sample t-test indicates that mean responding of the certain group in the tra
 #ANOVA
 resp <- training %>%
   group_by (pNum, block, condition) %>%
-  summarise(mean_response = mean(correct_answer, na.rm = TRUE))
+  summarise(mean_response = mean(prob_response, na.rm = TRUE))
 resp$block <- factor(resp$block)
 resp$condition <- factor(resp$condition)
 resp$pNum <- factor(resp$pNum)
@@ -166,24 +174,18 @@ bay_ANOVA_resp_int <- bay_ANOVA_resp[4]/bay_ANOVA_resp[3]
 print(bay_ANOVA_resp_int)
 ```
 
-Subjects in the certain group showed higher accuracy through training than the uncertain group, also showing a consistent increase as block progressed, reaching an accuracy of around 0.9 in block 4. However, the uncertain group showed an increase from block 1 to 2, but kept stable after, with an acuracy of around 0.6 in block 4. A mixed methods ANOVA confirmed that both the effect of the Block and the Condition was significant, as well as the interaction between them. ( respectively,`r apa(ANOVA_resp, effect = "block")`; `r apa(ANOVA_resp, effect = "condition")`; `r apa(ANOVA_resp, effect = "block:condition")`). However, its worth noting that bayesian evidence was very strong in favour of the main effects, but only anecdotal for the interaction (respectively, `r report_BF_and_error(bay_ANOVA_resp[1])`; `r report_BF_and_error(bay_ANOVA_resp[2])`; `r report_BF_and_error(bay_ANOVA_resp_int[1])`). 
+Subjects in the certain group showed higher accuracy through training than the uncertain group, also showing a consistent increase as block progressed, reaching an accuracy of around 0.9 in block 4. However, the uncertain group showed an increase from block 1 to 2, but kept stable after, with an acuracy of around 0.7 in block 4. A mixed methods ANOVA confirmed that both the effect of the Block and the Condition was significant, but not the interaction between them. ( respectively,`r apa(ANOVA_resp, effect = "block")`; `r apa(ANOVA_resp, effect = "condition")`; `r apa(ANOVA_resp, effect = "block:condition")`). Bayesian evidence was very strong in favour of the main effects, but anecdotal null for the interaction (respectively, `r report_BF_and_error(bay_ANOVA_resp[1])`; `r report_BF_and_error(bay_ANOVA_resp[2])`; `r report_BF_and_error(bay_ANOVA_resp_int[1])`). 
 
 ```{r, include = FALSE}
 ##Main effect of Condition
 resp_fitted_condition <- emmeans(ANOVA_resp, ~ condition)
 print(resp_fitted_condition)
 
-##Main effect of Age
+##Main effect of block
 resp_fitted_block <- emmeans(ANOVA_resp, ~ block)
 print(resp_fitted_block)
 #pairwise comparison with bonferroni correction
 pairs(resp_fitted_block, adjust = "bon")
-
-##Block by Condition Interaction
-resp_fitted_interaction <- emmeans(ANOVA_resp, c("block", "condition"))
-print(resp_fitted_interaction)
-##pairwise comparison with Bonferroni correction.
-pairs(resp_fitted_interaction, adjust = "bon")
 ```
 
 ## Test
