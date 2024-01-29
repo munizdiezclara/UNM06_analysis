@@ -212,7 +212,6 @@ acc_test$condition <- factor(acc_test$condition)
 acc_test$predictiveness <- factor(acc_test$predictiveness)
 ANOVA_acc_test <- aov_car(formula = mean_acc ~ condition + Error(pNum/predictiveness), data = acc_test)
 print(ANOVA_acc_test)
-
 bay_ANOVA_acc_test <- anovaBF(formula = mean_acc ~ condition + predictiveness + pNum,
         data = data.frame(acc_test),
         whichRandom = "pNum")
@@ -245,7 +244,6 @@ mem_test$condition <- factor(mem_test$condition)
 mem_test$predictiveness <- factor(mem_test$predictiveness)
 ANOVA_mem_test <- aov_car(formula = mean_mem ~ condition + Error(pNum/predictiveness), data = mem_test)
 print(ANOVA_mem_test)
-
 bay_ANOVA_mem_test <- anovaBF(formula = mean_mem ~ condition + predictiveness + pNum,
         data = data.frame(mem_test),
         whichRandom = "pNum")
